@@ -1,0 +1,5 @@
+# --- STM32CubeIDE autogen: exclude from language stats ---
+stm32/** linguist-generated=true
+
+stm32/uart_echo_led/Core/Src/main.c linguist-generated=false linguist-language=C
+stm32/uart_spammer/Core/Src/main.c linguist-generated=false linguist-language=C
