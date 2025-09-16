@@ -5,7 +5,8 @@ module uart_rx (
     input reset, //active-high
     output reg [FRAME_BITS - 1:0] rx_data,
     output reg frame_error, 
-    output reg valid
+    output reg valid,
+    output reg phase_arm //starts the phase_counter resets to 0
 );
 
     parameter integer FRAME_BITS = 8;
@@ -18,6 +19,10 @@ module uart_rx (
     reg [1:0] state = IDLE;
     reg [1:0] next_state = 0;
     reg [$clog2(FRAME_BITS) - 1: 0] bit_index = 0;
+
+    //Edge detection for phase_counter
+    wire falling_edge = rx_prev && ~rx_sync_in;
+    reg rx_prev = 1;
 
     // Async reset w/ transition logic
     always@(posedge clk or posedge reset) begin
@@ -33,7 +38,7 @@ module uart_rx (
         next_state = state;
         case (state)
             IDLE : begin
-                if(!rx_sync_in) begin
+                if(falling_edge) begin
                     next_state = START_CHECK;
                 end
             end
@@ -68,14 +73,19 @@ module uart_rx (
             bit_index <= 0;
             valid <= 0;
             frame_error <= 0;
+            phase_arm <= 0;
+            rx_prev <= 1;
         end else begin
+            rx_prev <= rx_sync_in;
             valid <= 0;
+            phase_arm <= 0;
             case (state)
                 IDLE : begin
-                    // Just for safety
                     frame_error <= 0;
                     bit_index <= 0;
+                    phase_arm <= falling_edge; //phase counter start
                 end
+
                 DATA : begin
                     if(center_tick && bit_index != FRAME_BITS - 1) begin
                         rx_data[bit_index] <= rx_sync_in;
