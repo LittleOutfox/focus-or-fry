@@ -11,7 +11,7 @@ module uart_tx (
   parameter integer OVERSAMPLE = 16;
   localparam [1:0] IDLE = 2'b00, START = 2'b01, DATA = 2'b10, STOP = 2'b11;
   reg [1:0] state;
-  reg [1:0] next_state = 0;
+  reg [1:0] next_state = 0; // NOTE: next_state is closer to a wire. it's only "reg" beacuse you're driving from a procedural block
   reg [$clog2(FRAME_BITS) - 1:0] bit_index = 0;
   reg [$clog2(OVERSAMPLE) - 1:0] sample_index = 0;
 
@@ -37,49 +37,27 @@ module uart_tx (
       end
 
       START : begin
-        if (baud_tick) begin
-          if (sample_index < OVERSAMPLE) begin
-            sample_index = sample_index + 1;
-          end else begin
-            sample_index = 0;
-            next_state = DATA;
-          end
+        if (baud_tick && sample_index == OVERSAMPLE) begin
+          next_state = DATA;
         end else begin
-          sample_index = sample_index;
           next_state = state;
         end
       end
 
       DATA : begin
-        if (baud_tick) begin
-          if (sample_index < OVERSAMPLE) begin // KEEP TRANSMITTING SAME BIT
-            sample_index = sample_index + 1;
-          end else begin // TIME TO MOVE TO NEXT BIT
-            sample_index = 0;
-            if (bit_index <  FRAME_BITS) begin 
-              bit_index = bit_index + 1;
-            end else begin
-              bit_index = 0;
-              next_state = STOP;
-            end
-          end
+        if (baud_tick && sample_index == OVERSAMPLE && bit_index ==  FRAME_BITS) begin
+          next_state = STOP;
         end else begin
-          sample_index = sample_index;
-          bit_index = bit_index;
           next_state = state;
         end
       end
 
       STOP : begin
         if (baud_tick) begin
-          if (sample_index < OVERSAMPLE) begin
-            sample_index = sample_index + 1;
-          end else begin
-            sample_index = 0;
-            next_state = DATA;
+          if (sample_index == OVERSAMPLE) begin
+            next_state = IDLE;
           end
         end else begin
-          sample_index = sample_index;
           next_state = state;
         end
       end
@@ -97,9 +75,46 @@ module uart_tx (
     end else begin
       case (state)
         IDLE : tx_out <= 1;
-        START :tx_out <= 0;
-        DATA : tx_out <= data[bit_index];
-        STOP : tx_out <= 1;
+
+        START : begin 
+          tx_out <= 0;
+          if (baud_tick) begin
+            if (sample_index < OVERSAMPLE) begin
+              sample_index <= sample_index + 1;
+            end else begin
+              sample_index <= 0;
+            end
+          end else begin
+            sample_index <= sample_index;
+          end
+        end
+
+        DATA : begin 
+          tx_out <= data[bit_index];
+          if (baud_tick) begin
+            if (sample_index < OVERSAMPLE) begin // KEEP TRANSMITTING SAME BIT
+              sample_index <= sample_index + 1;
+            end else begin // TIME TO MOVE TO NEXT BIT
+              sample_index <= 0;
+              if (bit_index <  FRAME_BITS) begin 
+                bit_index <= bit_index + 1;
+              end else begin
+                bit_index <= 0;
+              end
+            end
+          end
+        end
+
+        STOP : begin
+          tx_out <= 1;
+          if (baud_tick) begin
+            if (sample_index < OVERSAMPLE) begin
+              sample_index <= sample_index + 1;
+            end else begin
+              sample_index <= 0;
+            end
+          end
+        end
       endcase
     end
   end
