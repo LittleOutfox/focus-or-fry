@@ -44,14 +44,14 @@ module tb_phase_counter ();
     end
   endtask
 
+  // VCD dump
   initial begin
-    $dumpfile("tb_baud_generator.vcd");
-    $dumpvars(0, tb_baud_generator);
+    $dumpfile("tb_phase_counter.vcd");
+    $dumpvars(0);
   end
 
   // check single-cycle pulse
   task automatic check_onehot_pulse(string name, logic sig);
-    // sample at clk edges: should not be high back-to-back
     static logic prev_center, prev_first;
     if (name == "center") begin
       if (sig && prev_center) $fatal(1, "[%0t] center_tick wider than 1 clk", $time);
@@ -96,33 +96,39 @@ module tb_phase_counter ();
         if (delta != CENTER)
           $fatal(1, "[%0t] First->Center spacing %0d != CENTER %0d", $time, delta, CENTER);
       end
-      // also ensure not coincident with first_tick unless CENTER==0
       if (first_tick && CENTER != 0)
         $fatal(1, "[%0t] center_tick coincident with first_tick unexpectedly", $time);
       last_center_idx = baud_idx;
     end
   end
 
+  logic seen_center;
   // main stimulus
   initial begin
     $display("=== tb_phase_counter start (OVERSAMPLE=%0d) ===", OVERSAMPLE);
-    $dumpfile("tb_phase_counter.vcd");
-    $dumpvars(0, tb_phase_counter);
 
-    // idle: without arm, no ticks should appear even if baud_en pulses.
-    phase_arm = 1'b0;
-    pulse_baud(10);
-    if (first_tick || center_tick) $fatal(1, "Ticks appeared without phase_arm asserted");
-
-    // arm, then generate one full frame worth of baud_en pulses
+    // idle: while phase_arm is HELD high, no ticks should appear
     phase_arm = 1'b1;
-    @(posedge clk);  // give arm a cycle to register
-    pulse_baud(1);  // expect first_tick here
-    if (!first_tick) $fatal(1, "No first_tick on first armed enable");
+    pulse_baud(10);
+    if (first_tick || center_tick) $fatal(1, "Ticks appeared while phase_arm held high");
+    phase_arm = 1'b0; // release
 
-    // complete the rest of a frame
-    pulse_baud(OVERSAMPLE - 1);  // expect center_tick at CENTER
-    if (!center_tick) $fatal(1, "No center_tick within first frame");
+    // pulse phase_arm, then expect first_tick on the very next enable
+    phase_arm = 1'b1;
+    @(posedge clk);
+    phase_arm = 1'b0;  // RELEASE so counting can proceed
+    pulse_baud(1);
+    @(posedge clk);
+    if (!first_tick) $fatal(1, "No first_tick on first enable after phase_arm pulse");
+
+    // complete the rest of a frame and watch for center as a single-cycle pulse
+    seen_center = 0;
+    for (int i = 0; i < OVERSAMPLE - 1; i++) begin
+      pulse_baud(1);
+      @(posedge clk)
+      if (center_tick) seen_center = 1;
+    end
+    if (!seen_center) $fatal(1, "No center_tick seen within the first frame");
 
     // another full frame: expect exactly one first and one center
     firsts = 0;
@@ -132,33 +138,37 @@ module tb_phase_counter ();
 
     while (baud_idx < until_idx) begin
       pulse_baud(1);
+      @(posedge clk)
       if (first_tick) firsts++;
       if (center_tick) centers++;
     end
     if (firsts != 1 || centers != 1)
-      $fatal(
-          1, "Expected 1 first and 1 center in a frame, got first=%0d center=%0d", firsts, centers
-      );
+      $fatal(1, "Expected 1 first and 1 center in a frame, got first=%0d center=%0d", firsts, centers);
 
     // hold baud_en low: counter must not advance, no ticks
-    phase_arm = 1'b1;
     repeat (10) @(posedge clk);
     if (first_tick || center_tick) $fatal(1, "Ticks appeared while baud_en=0");
 
-    // start a partial frame
+    // start a partial frame, then re-arm with a pulse; next enable should realign to first
     pulse_baud(CENTER / 2);  // mid progress
-    // re-arm
-    phase_arm = 1'b1;  // stays 1; re-arm is level-sensitive in this DUT design
+    // pulse re-arm and invalidate spacing references (aborted frame)
+    phase_arm = 1'b1;
     @(posedge clk);
-    // next enable should cause a first_tick again
+    phase_arm = 1'b0;
+    last_first_idx  = -1;  
+    last_center_idx = -1;
+    @(posedge clk);
     pulse_baud(1);
-    if (!first_tick) $fatal(1, "Expected re-armed first_tick after mid-frame re-arm");
+    @(posedge clk); 
+    if (!first_tick) $fatal(1, "Expected first_tick after mid-frame phase_arm pulse");
 
+    // multi-frame sanity: 3 frames => 3 firsts & 3 centers
     firsts  = 0;
     centers = 0;
     for (int f = 0; f < 3; f++) begin
       for (int i = 0; i < OVERSAMPLE; i++) begin
         pulse_baud(1);
+        @(posedge clk);
         if (first_tick) firsts++;
         if (center_tick) centers++;
       end
@@ -169,5 +179,4 @@ module tb_phase_counter ();
     $display("=== PASS: tb_phase_counter ===");
     $finish;
   end
-
 endmodule
