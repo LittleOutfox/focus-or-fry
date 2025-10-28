@@ -1,4 +1,6 @@
-module uart_rx (
+module uart_rx #(
+    parameter integer FRAME_BITS = 8
+) (
     input clk,
     input rx_sync_in,
     input center_tick,
@@ -9,7 +11,6 @@ module uart_rx (
     output reg phase_arm  //starts the phase_counter resets to 0
 );
 
-  parameter integer FRAME_BITS = 8;
   localparam [1:0] IDLE = 2'd0, START_CHECK = 2'd1, DATA = 2'd2, STOP_CHECK = 2'd3;
 
   reg [1:0] state = IDLE;
@@ -17,8 +18,8 @@ module uart_rx (
   reg [$clog2(FRAME_BITS) - 1:0] bit_index = 0;
 
   //Edge detection for phase_counter
-  wire falling_edge = rx_prev && ~rx_sync_in;
   reg rx_prev = 1;
+  wire falling_edge = rx_prev && ~rx_sync_in;
 
   // Async reset w/ transition logic
   always @(posedge clk or posedge reset) begin
