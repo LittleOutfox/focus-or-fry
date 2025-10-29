@@ -60,7 +60,7 @@ module tb_uart_rx ();
       center_tick <= 1'b1;
       @(posedge clk);
       center_tick <= 1'b0;
-      wait_clocks(TICKS_PER_BIT - HALF_BIT_TCK);
+      @(posedge clk); //advances on centre tick, no need to wait till end of bit
     end
   endtask
 
@@ -96,8 +96,6 @@ module tb_uart_rx ();
     exp = 8'h55;
     $display("[%0t] TEST1: send 0x%0h (good frame)", $time, exp);
     send_byte(exp,  /*bad_stop*/ 1'b0);
-    // give RX a few clocks after stop's center tick
-    wait_clocks(8);
 
     if (!valid) $fatal(1, "[%0t] TEST1: expected valid=1", $time);
     if (frame_error) $fatal(1, "[%0t] TEST1: expected frame_error=0", $time);
@@ -109,10 +107,8 @@ module tb_uart_rx ();
     exp = 8'hC1;
     $display("[%0t] TEST2: send 0x%0h with bad stop", $time, exp);
     send_byte(exp,  /*bad_stop*/ 1'b1);
-    wait_clocks(8);
 
     if (!frame_error) $fatal(1, "[%0t] TEST2: expected frame_error=1", $time);
-    // Some UARTs still assert valid; we won't require it here.
     $display("[%0t] TEST2: PASS (frame_error=1)", $time);
 
     $display("[%0t] ALL DONE :)", $time);
