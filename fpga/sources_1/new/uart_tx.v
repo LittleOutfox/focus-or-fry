@@ -1,4 +1,7 @@
-module uart_tx (
+module uart_tx #(
+  parameter integer FRAME_BITS = 8,
+  parameter integer OVERSAMPLE = 16
+) (
     input clk,
     input start,
     input baud_tick,
@@ -7,8 +10,6 @@ module uart_tx (
     output reg tx_out,
     output reg tx_status //high = busy, low = ready
 );
-  parameter integer FRAME_BITS = 8;
-  parameter integer OVERSAMPLE = 16;
   localparam [1:0] IDLE = 2'b00, START = 2'b01, DATA = 2'b10, STOP = 2'b11;
   reg [1:0] state = IDLE;
   reg [1:0] next_state = 0; // NOTE: next_state is closer to a wire. it's only "reg" beacuse you're driving from a procedural block
