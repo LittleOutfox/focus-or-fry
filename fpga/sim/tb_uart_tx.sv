@@ -144,15 +144,14 @@ module tb_uart_tx ();
     $display("[%0t] TEST1: send 0x%0h", $time, exp_byte);
     tx_send_byte(exp_byte);
 
-    // while TX is busy, make sure tx_status stays 1
-    fork
-      begin
-        while (tx_status == 1'b1) begin
+  
+    fork //fork allows procedural code to run in parallel (not critical to this TB just for safety and learning)
+      begin //thread 1 (waits for tx to return to idle)
+        while (tx_status == 1'b1) begin // this is an impossible loop. simulation is event based so it will catch the same clock edge multiple times
           @(posedge clk);
         end
       end
-      begin
-        // capture what actually went out
+      begin //thread 2 capture what actually went out
         rx_serial_from_tx(got_byte);
       end
     join
@@ -163,7 +162,7 @@ module tb_uart_tx ();
       $display("[%0t] TEST1 PASS", $time);
     end
 
-    // small gap
+    // small gap to serperate tests
     wait_clocks(100);
 
     // ----------------------------------------------------
@@ -180,8 +179,8 @@ module tb_uart_tx ();
       $display("[%0t] TEST2 PASS", $time);
     end
 
-    // Final check: TX should be idle
-    wait_clocks(20);
+    // Final check: TX should be idle (wait out the stop bit)
+    wait_baud_ticks(16);
     if (tx_status !== 1'b0) begin
       $fatal(1, "[%0t] Expected tx_status=0 (idle) at end", $time);
     end
