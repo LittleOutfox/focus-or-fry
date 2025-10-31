@@ -1,4 +1,4 @@
-module baud_generator #(
+module baud_generator # (
   parameter integer CLOCK_HZ = 100_000_000,
   parameter integer BAUD = 115_200,
   parameter integer OVERSAMPLE = 16,
