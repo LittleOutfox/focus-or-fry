@@ -1,11 +1,12 @@
-module phase_counter (
+module phase_counter # (
+    parameter integer OVERSAMPLE = 16;
+) (
     input baud_en,
     input clk,
     input phase_arm,
     output reg center_tick = 0,
     output reg first_tick = 0
 );
-    parameter integer OVERSAMPLE = 16;
     localparam integer CENTER = OVERSAMPLE/2; // Lean towards safe side of bit 
     localparam integer COUNTER_BITS = $clog2(OVERSAMPLE);
 
