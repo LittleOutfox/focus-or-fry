@@ -60,7 +60,7 @@ module tb_uart_rx ();
       center_tick <= 1'b1;
       @(posedge clk);
       center_tick <= 1'b0;
-      @(posedge clk); //advances on centre tick, no need to wait till end of bit
+      @(posedge clk);  //advances on centre tick, no need to wait till end of bit
     end
   endtask
 

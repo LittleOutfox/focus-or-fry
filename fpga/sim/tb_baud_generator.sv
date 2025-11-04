@@ -1,4 +1,4 @@
-`timescale 1ns/1ps
+`timescale 1ns / 1ps
 
 module tb_baud_generator ();
   //bookkeeping
@@ -15,22 +15,22 @@ module tb_baud_generator ();
 
   // creating the clock
   initial begin
-      clk = 0;
-      forever begin
-          #5 clk = ~clk;
-      end
+    clk = 0;
+    forever begin
+      #5 clk = ~clk;
+    end
   end
 
   // DUT
   wire enable;
   baud_generator #(
-    .CLOCK_HZ(100_000_000), // irrelevant for this TB since we override DIV
-    .BAUD(115_200),
-    .OVERSAMPLE(16),
-    .DIV(DIV_UNDER_TEST)
+      .CLOCK_HZ(100_000_000),  // irrelevant for this TB since we override DIV
+      .BAUD(115_200),
+      .OVERSAMPLE(16),
+      .DIV(DIV_UNDER_TEST)
   ) dut (
-    .clk(clk),
-    .enable(enable)
+      .clk(clk),
+      .enable(enable)
   );
 
   initial begin
@@ -65,7 +65,8 @@ module tb_baud_generator ();
         period = cycle_count - last_tick_cycle;
         if (period !== DIV_UNDER_TEST) begin
           $display("[%0t] ERROR: tick period %0d != DIV %0d", $time, period, DIV_UNDER_TEST);
-          $display("[%0t] DEBUG: expected DIV=%0d, measured period=%0d", $time, DIV_UNDER_TEST, period);
+          $display("[%0t] DEBUG: expected DIV=%0d, measured period=%0d", $time, DIV_UNDER_TEST,
+                   period);
           $fatal(1);
         end
       end
@@ -74,7 +75,8 @@ module tb_baud_generator ();
 
       // stop after several good ticks
       if (tick_count == 10) begin
-        $display("[%0t] PASS: saw %0d clean ticks, period=%0d, width=1", $time, tick_count, DIV_UNDER_TEST);
+        $display("[%0t] PASS: saw %0d clean ticks, period=%0d, width=1", $time, tick_count,
+                 DIV_UNDER_TEST);
         $finish;
       end
     end
