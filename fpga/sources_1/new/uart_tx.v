@@ -10,9 +10,9 @@ module uart_tx #(
     output reg tx_out,
     output reg tx_status  //high = busy, low = ready
 );
-  localparam [1:0] IDLE = 2'b00, START = 2'b01, DATA = 2'b10, STOP = 2'b11;
-  reg [1:0] state = IDLE;
-  reg [1:0] next_state = 0; // NOTE: next_state is closer to a wire. it's only "reg" beacuse you're driving from a procedural block
+  localparam [2:0] IDLE = 3'b000, START = 3'b001, DATA = 3'b010, STOP_BIT = 3'b011, STOP = 3'b100;
+  reg [2:0] state = IDLE;
+  reg [2:0] next_state = 0; // NOTE: next_state is closer to a wire. it's only "reg" beacuse you're driving from a procedural block
   reg [$clog2(FRAME_BITS) - 1:0] bit_index = 0;
   reg [$clog2(OVERSAMPLE) - 1:0] sample_index = 0;
   reg [FRAME_BITS - 1:0] tx_latch = 0;
@@ -48,20 +48,24 @@ module uart_tx #(
 
       DATA: begin
         if (baud_tick && (sample_index == OVERSAMPLE - 1) && (bit_index == FRAME_BITS - 1)) begin
-          next_state = STOP;
+          next_state = STOP_BIT;
         end else begin
           next_state = state;
         end
       end
 
-      STOP: begin
+      STOP_BIT: begin
         if (baud_tick) begin
           if (sample_index == OVERSAMPLE - 1) begin
-            next_state = IDLE;
+            next_state = STOP;
           end
         end else begin
           next_state = state;
         end
+      end
+
+      STOP: begin //purpose of STOP state is to have atleast one pulse of "ready" on tx_status
+        next_state = IDLE;
       end
 
       default: next_state = state;
@@ -86,6 +90,8 @@ module uart_tx #(
           sample_index <= 0;
 
           if (start) begin
+            tx_status <= 1;
+            @(posedge clk);
             tx_latch <= tx_input;
           end
         end
@@ -117,7 +123,7 @@ module uart_tx #(
           end
         end
 
-        STOP: begin
+        STOP_BIT: begin
           tx_out <= 1;
           if (baud_tick) begin
             if (sample_index < OVERSAMPLE - 1) begin
@@ -126,6 +132,10 @@ module uart_tx #(
               sample_index <= 0;
             end
           end
+        end
+
+        STOP: begin
+          tx_status <= 0;
         end
       endcase
     end

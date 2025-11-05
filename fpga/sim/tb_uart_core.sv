@@ -27,7 +27,7 @@ module tb_uart_core;
   localparam int DIV = CLK_HZ / (BAUD * OVERSAMPLE);  // ~13
   localparam int TICKS_PER_BIT = DIV * OVERSAMPLE;  // 104
   localparam int CLK_NS = 1e9 / CLK_HZ;  // 1000 ns period (1 µs)
-
+  localparam int N_BURST = 64;
 
   // clock/reset
   logic             clk;
@@ -60,7 +60,7 @@ module tb_uart_core;
   // shared loop indices (declared at top to avoid in-block decls)
   int  i;
   int  k;
-
+  
   // Wiring
   assign rx_line = (loopback_en) ? tx : rx_drive;
 
@@ -143,12 +143,8 @@ module tb_uart_core;
       wait_clocks(TICKS_PER_BIT);
     end
 
-    // stop bit (bad_stop forces 0)
+    // stop bit
     rx_drive <= (bad_stop ? 1'b0 : 1'b1);
-    wait_clocks(TICKS_PER_BIT);
-
-    // back to idle
-    rx_drive <= 1'b1;
     wait_clocks(TICKS_PER_BIT);
   endtask
 
@@ -182,14 +178,27 @@ module tb_uart_core;
     write_host_byte(exp1);
     write_host_byte(exp2);
 
+    // check 1st byte
     read_host_byte(got);
-    if (got !== exp0) $fatal(1, "[%0t] FAIL: expected %0h got %0h (byte0)", $time, exp0, got);
+    if (got !== exp0)
+    $fatal(1, "[%0t] FAIL: expected %0h, got %0h (byte0)", $time, exp0, got);
+    else
+    $display("[%0t] PASS: expected %0h, got %0h (byte0)", $time, exp0, got);
 
+    // check 2nd byte
     read_host_byte(got);
-    if (got !== exp1) $fatal(1, "[%0t] FAIL: expected %0h got %0h (byte1)", $time, exp1, got);
+    if (got !== exp1)
+    $fatal(1, "[%0t] FAIL: expected %0h, got %0h (byte1)", $time, exp1, got);
+    else
+    $display("[%0t] PASS: expected %0h, got %0h (byte1)", $time, exp1, got);
 
+    // check 3rd byte
     read_host_byte(got);
-    if (got !== exp2) $fatal(1, "[%0t] FAIL: expected %0h got %0h (byte2)", $time, exp2, got);
+    if (got !== exp2)
+    $fatal(1, "[%0t] FAIL: expected %0h, got %0h (byte2)", $time, exp2, got);
+    else
+    $display("[%0t] PASS: expected %0h, got %0h (byte2)", $time, exp2, got);
+
 
     $display("[%0t] TEST1: PASS", $time);
 
@@ -219,4 +228,13 @@ module tb_uart_core;
     $finish;
   end
 
+   // safety timeout
+  initial begin
+    #100000000;
+    $display("[%0t] TIMEOUT: did not complete checks in time", $time);
+    $finish;
+  end
+
 endmodule
+
+

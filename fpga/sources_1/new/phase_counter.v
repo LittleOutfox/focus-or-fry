@@ -1,5 +1,5 @@
 module phase_counter # (
-    parameter integer OVERSAMPLE = 16;
+    parameter integer OVERSAMPLE = 16
 ) (
     input baud_en,
     input clk,
