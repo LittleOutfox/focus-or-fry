@@ -16,6 +16,7 @@ module uart_tx #(
   reg [$clog2(FRAME_BITS) - 1:0] bit_index = 0;
   reg [$clog2(OVERSAMPLE) - 1:0] sample_index = 0;
   reg [FRAME_BITS - 1:0] tx_latch = 0;
+  reg latch_next = 0; //used to wait one clk cycle
 
   // Async reset w/ transition logic
   always @(posedge clk or posedge reset) begin
@@ -91,12 +92,16 @@ module uart_tx #(
 
           if (start) begin
             tx_status <= 1;
-            @(posedge clk);
-            tx_latch <= tx_input;
+            latch_next <= 1'b1;   // arm latch for next cycle
           end
         end
 
         START: begin
+          if (latch_next == 1'b1) begin
+            tx_latch   <= tx_input; 
+            latch_next <= 0;   // reset latch
+          end
+          
           tx_out <= 0;
           if (baud_tick) begin
             if (sample_index < OVERSAMPLE - 1) begin
