@@ -69,10 +69,12 @@ module top (
     );
 
     // Simple RX->TX echo FSM
-    localparam S_IDLE  = 1'b0;
-    localparam S_LATCH = 1'b1;
+    localparam S_IDLE  = 2'd0;
+    localparam S_READ  = 2'd1;
+    localparam S_LATCH = 2'd2;
+    localparam S_WRITE = 2'd3;
 
-    reg state;
+    reg [1:0]state;
 
     always @(posedge clk or posedge reset_btn) begin
         if (reset_btn) begin
@@ -87,17 +89,27 @@ module top (
 
             case (state)
                 S_IDLE: begin
-                    // When there is data in RX FIFO and TX has space, pop one byte
                     if (!rx_empty && !tx_full) begin
+                        // Ask RX FIFO to pop one byte on the transition;
+                        // S_READ is a one-cycle wait so dout updates before we sample it.
                         read_uart <= 1'b1;
-                        state     <= S_LATCH;
+                        state     <= S_READ;
                     end
                 end
 
+                S_READ: begin
+                    state <= S_LATCH;
+                end
+
                 S_LATCH: begin
-                    // One cycle after read, FIFO output is valid
+                    // Now RX FIFO output is stable, so capture it
                     rx_latched <= rx_data;
-                    write_uart <= 1'b1;  // push into TX FIFO
+                    state      <= S_WRITE;
+                end
+
+                S_WRITE: begin
+                    // Now rx_latched is stable, so write it to TX FIFO
+                    write_uart <= 1'b1;
                     state      <= S_IDLE;
                 end
 
