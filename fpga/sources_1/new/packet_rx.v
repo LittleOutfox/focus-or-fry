@@ -19,7 +19,6 @@ module packet_rx #(
     output reg error
 );
 
-  //Output sequence of attention numbers
   FIFO #(
       .WIDTH(WIDTH),
       .DEPTH(FIFO_DEPTH)
@@ -34,7 +33,20 @@ module packet_rx #(
       .empty(empty)
   );
 
-  localparam [3:0] IDLE = 4'd0,  START_CHECK = 4'd1, SEQUENCE_PULSE = 4'd2, SEQUENCE_READ = 4'd3, ATTENTION_PULSE = 4'd4, ATTENTION_READ = 4'd5, CHECKSUM_PULSE  = 4'd6, CHECKSUM_READ  = 4'd7, FINALIZATION = 4'd8;
+  localparam [3:0] IDLE             = 4'd0,
+                   START_PULSE      = 4'd1,
+                   START_WAIT       = 4'd2,
+                   START_CHECK      = 4'd3,
+                   SEQUENCE_PULSE   = 4'd4,
+                   SEQUENCE_WAIT    = 4'd5,
+                   SEQUENCE_READ    = 4'd6,
+                   ATTENTION_PULSE  = 4'd7,
+                   ATTENTION_WAIT   = 4'd8,
+                   ATTENTION_READ   = 4'd9,
+                   CHECKSUM_PULSE   = 4'd10,
+                   CHECKSUM_WAIT    = 4'd11,
+                   CHECKSUM_READ    = 4'd12,
+                   FINALIZATION     = 4'd13;
 
   reg [3:0] state = IDLE;
   reg [3:0] next_state = 0;
@@ -62,8 +74,18 @@ module packet_rx #(
     case (state)
       IDLE: begin
         if (!rx_empty) begin
-          next_state = START_CHECK;
+          next_state = START_PULSE;
         end
+      end
+
+      START_PULSE: begin
+        if (!rx_empty) begin
+          next_state = START_WAIT;
+        end
+      end
+
+      START_WAIT: begin
+        next_state = START_CHECK;
       end
 
       START_CHECK: begin
@@ -76,8 +98,12 @@ module packet_rx #(
 
       SEQUENCE_PULSE: begin
         if (!rx_empty) begin
-          next_state = SEQUENCE_READ;
+          next_state = SEQUENCE_WAIT;
         end
+      end
+
+      SEQUENCE_WAIT: begin
+        next_state = SEQUENCE_READ;
       end
 
       SEQUENCE_READ: begin
@@ -86,8 +112,12 @@ module packet_rx #(
 
       ATTENTION_PULSE: begin
         if (!rx_empty) begin
-          next_state = ATTENTION_READ;
+          next_state = ATTENTION_WAIT;
         end
+      end
+
+      ATTENTION_WAIT: begin
+        next_state = ATTENTION_READ;
       end
 
       ATTENTION_READ: begin
@@ -96,8 +126,12 @@ module packet_rx #(
 
       CHECKSUM_PULSE: begin
         if (!rx_empty) begin
-          next_state = CHECKSUM_READ;
+          next_state = CHECKSUM_WAIT;
         end
+      end
+
+      CHECKSUM_WAIT: begin
+        next_state = CHECKSUM_READ;
       end
 
       CHECKSUM_READ: begin
@@ -127,15 +161,22 @@ module packet_rx #(
       write_flag <= 0;
       read_uart <= 0;
       case (state)
-        // IDLE and START_CHECK are not one state so you pulse read_uart one clock cycle
         IDLE: begin
+          // wait for upstream data; pop happens in START_PULSE
+        end
+
+        START_PULSE: begin
           if (!rx_empty) begin
             read_uart <= 1;
           end
         end
 
-        START_CHECK: begin
+        START_WAIT: begin
           read_uart <= 0;
+        end
+
+        START_CHECK: begin
+          // data is now valid; next-state logic decides accept/reject
         end
 
         SEQUENCE_PULSE: begin
@@ -144,8 +185,11 @@ module packet_rx #(
           end
         end
 
+        SEQUENCE_WAIT: begin
+          read_uart <= 0;
+        end
+
         SEQUENCE_READ: begin
-          read_uart   <= 0;
           sequencenum <= data;
         end
 
@@ -155,8 +199,11 @@ module packet_rx #(
           end
         end
 
-        ATTENTION_READ: begin
+        ATTENTION_WAIT: begin
           read_uart <= 0;
+        end
+
+        ATTENTION_READ: begin
           attentionval <= data;
         end
 
@@ -166,9 +213,12 @@ module packet_rx #(
           end
         end
 
-        CHECKSUM_READ: begin
+        CHECKSUM_WAIT: begin
           read_uart <= 0;
-          checksum  <= data;
+        end
+
+        CHECKSUM_READ: begin
+          checksum <= data;
         end
 
         FINALIZATION: begin
