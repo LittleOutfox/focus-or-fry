@@ -1,4 +1,4 @@
-module uart_rx_sync (
+module sync_2ff (
     input  async_in,
     input  clk,
     output synced_input

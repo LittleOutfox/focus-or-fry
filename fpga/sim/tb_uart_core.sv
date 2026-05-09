@@ -1,6 +1,6 @@
 // need include statements for EDA playground
 `include "uart_core.v"
-`include "uart_rx_sync.v"
+`include "sync_2ff.v"
 `include "FIFO.v"
 `include "baud_generator.v"
 `include "uart_rx.v"

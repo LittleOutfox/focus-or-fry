@@ -87,7 +87,7 @@ module uart_core #(
       .first_tick(phase_first_tick)
   );
 
-  uart_rx_sync u_rx_sync (
+  sync_2ff u_rx_sync (
       .async_in(rx),
       .clk(clk),
       .synced_input(synced_rx)
