@@ -14,12 +14,12 @@ module rolling_avg #(
 );
 
   localparam [1:0] IDLE = 2'd0, WAIT = 2'd1, READ = 2'd2, UPDATE = 2'd3;
+  localparam integer AW = $clog2(DEPTH);
   localparam integer SUM_WIDTH = WIDTH + AW;
 
   reg [1:0] state = IDLE;
   reg [1:0] next_state = 0;
 
-  localparam integer AW = $clog2(DEPTH);
   //circular buffer means write in a circle not shifting list like C++
   reg [WIDTH-1:0] mem[0:DEPTH-1];
   reg [AW-1:0] wp = 0;  // write pointer
